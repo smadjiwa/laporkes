@@ -85,7 +85,6 @@ function updateHemDashboard(d){
   put('hem-sick', fmt(d.muridSakit3K || 0));
   put('hem-date', d.tarikhData || '—');
   put('hem-updated', 'Kemas kini: '+(d.dikemasKini || '—'));
-  put('hem-discipline','—'); put('hem-discipline-foot','Belum disambungkan');
   put('hem-aid','—'); put('hem-aid-foot','Belum disambungkan');
   const c=charts.find(x=>x.canvas && x.canvas.id==='attendanceChart');
   if(c && Array.isArray(d.pecahanTingkatan)){
@@ -114,7 +113,7 @@ let currentPage="dashboard",currentSub="",charts=[];
 const fmt=n=>n.toLocaleString("ms-MY");
 function head(title,desc){return `<div class="page-head"><div><div class="eyebrow">Pengurusan Hal Ehwal Murid</div><h1>${title}</h1><p>${desc}</p></div><div class="date-chip">◷ &nbsp; <span id="hem-date">Memuatkan tarikh...</span></div></div>`}
 function cardTitle(t,s,tag=""){return `<div class="card-title"><div><h3>${t}</h3><p>${s}</p></div>${tag?`<span class="tag">${tag}</span>`:""}</div>`}
-function dashboard(){return `${head("Ringkasan Eksekutif HEM","Pantauan menyeluruh status murid, kebajikan, disiplin dan keselamatan sekolah.")}<div class="notice" style="display:flex;justify-content:space-between;align-items:center;gap:10px"><span id="hemDataNote">Menunggu sambungan data Google Sheets...</span><button class="btn secondary" onclick="loadHemData()">↻ Kemas kini data</button></div><div class="grid kpis">
+function dashboard(){return `${head("Ringkasan Eksekutif HEM","Pantauan menyeluruh status murid, kebajikan, disiplin dan keselamatan sekolah.")}<div class="notice" style="display:flex;justify-content:space-between;align-items:center;gap:10px"><span id="hemDataNote">Menunggu sambungan data Google Sheets...</span><button class="btn secondary" onclick="loadHemData();loadHemSahsiahData()">↻ Kemas kini data</button></div><div class="grid kpis">
 ${kpi("Jumlah Murid",'<span id="hem-total">—</span>','<span id="hem-gender">Lelaki — · Perempuan —</span>',"♙","blue","Sumber: Daftar")}
 ${kpi("Kehadiran Hari Ini",'<span id="hem-attendance">—</span>','<span id="hem-attendance-foot">Memuatkan data...</span>',"◷","green","Sumber: HadirKelas")}
 ${kpi("Kes Disiplin Aktif",'<span id="hem-discipline">—</span>','<span id="hem-discipline-foot">Belum disambungkan</span>',"⚑","red","Modul disiplin belum disambungkan")}
@@ -151,10 +150,89 @@ function setupCharts(){
  charts.forEach(c=>c.destroy());charts=[];
  if(document.getElementById("attendanceChart")){charts.push(new Chart(document.getElementById("attendanceChart"),{type:"bar",data:{labels:["Tingkatan 1","Tingkatan 2","Tingkatan 3","Tingkatan 4","Tingkatan 5"],datasets:[{label:"Kehadiran",data:[null,null,null,null,null],backgroundColor:["#4f8cff","#4f8cff","#f5b942","#20c997","#f5b942"],borderRadius:5,barThickness:28},{type:"line",label:"Sasaran 95%",data:[95,95,95,95,95],borderColor:"#f16b75",borderDash:[6,5],pointRadius:0,borderWidth:2}]},options:{maintainAspectRatio:false,plugins:{legend:{labels:{color:"#9fb1c9",font:{size:9},usePointStyle:true}}},scales:{x:{ticks:{color:"#9fb1c9",font:{size:9}},grid:{display:false}},y:{min:85,max:100,ticks:{color:"#9fb1c9",callback:v=>v+"%",font:{size:9}},grid:{color:"#26364d"}}}}}))}
  const aid=document.getElementById("aidBars");if(aid)aid.innerHTML=[["BAP","1,380 / 1,428 murid",96.6],["KWAMP","82 / 96 penerima",85.4],["SPBT","1,405 / 1,428 set",98.4],["Biasiswa","42 / 48 penerima",87.5]].map((x,i)=>`<div class="progress-row"><div class="progress-meta"><b>${x[0]}</b><span>${x[1]} · ${x[2]}%</span></div><div class="progress"><i style="width:${x[2]}%;background:${i===1?"#f5b942":i===3?"#a78bfa":"linear-gradient(90deg,#397ee8,#37c6e8)"}"></i></div></div>`).join("");
- donut("disciplineChart",[18,11,8,5],["Ponteng","Lambat","Vape/rokok","Lain-lain"],["#f16b75","#f5b942","#a78bfa","#4f8cff"]);
- donut("goodChart",[72,54,38,22],["Kepimpinan","Sukarelawan","Akademik","Sahsiah"],["#20c997","#4f8cff","#f5b942","#a78bfa"]);
+ donut("disciplineChart",[1],["Memuatkan data..."],["#40516b"]);
+ donut("goodChart",[1],["Memuatkan data..."],["#40516b"]);
+ loadHemSahsiahData();
 }
 function donut(id,data,labels,colors){let el=document.getElementById(id);if(el)charts.push(new Chart(el,{type:"doughnut",data:{labels,datasets:[{data,backgroundColor:colors,borderColor:"#142137",borderWidth:3,hoverOffset:4}]},options:{maintainAspectRatio:false,cutout:"68%",plugins:{legend:{display:false},tooltip:{enabled:true}}}}))}
+
+
+
+/* INTEGRASI DATA DISIPLIN & SAHSIAH DARIPADA GOOGLE SHEETS */
+let hemSahsiahData = null;
+let hemSahsiahLoading = false;
+
+function loadHemSahsiahData(){
+  if(hemSahsiahLoading) return;
+  hemSahsiahLoading = true;
+  const cb = 'hemSahsiahCallback_' + Date.now();
+  const script = document.createElement('script');
+
+  window[cb] = data => {
+    try {
+      if(!data || !data.success) throw new Error(data && data.error ? data.error : 'Respons API tidak sah.');
+      hemSahsiahData = data;
+      updateHemSahsiahUI(data);
+    } catch(err) {
+      setHemSahsiahError(err.message);
+    } finally {
+      hemSahsiahLoading = false;
+      delete window[cb];
+      script.remove();
+    }
+  };
+
+  script.onerror = () => {
+    hemSahsiahLoading = false;
+    setHemSahsiahError('Gagal menghubungi API Disiplin & Sahsiah. Semak URL/deployment GAS.');
+    delete window[cb];
+    script.remove();
+  };
+
+  script.src = GAS_URL + (GAS_URL.includes('?') ? '&' : '?') +
+    'api=hemSahsiah&callback=' + encodeURIComponent(cb) + '&_=' + Date.now();
+  document.body.appendChild(script);
+}
+
+function setHemSahsiahError(message){
+  ['hemDisiplinAktifNota','hemDisiplinAktifStatus','hemDisiplinJumlah','hemAmalanJumlah'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.textContent=message;
+  });
+  const active=document.getElementById('hemDisiplinAktif');
+  if(active) active.textContent='—';
+}
+
+function updateHemSahsiahUI(data){
+  const disiplin=data.disiplin||{};
+  const amalan=data.amalanBaik||{};
+  const put=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value;};
+
+  put('hemDisiplinAktif',fmt(Number(disiplin.aktif||0)));
+  put('hemDisiplinAktifNota',fmt(Number(disiplin.belumSelesai||0))+' kes belum selesai');
+  put('hemDisiplinAktifStatus','Dikemas kini: '+(data.dikemasKini||'—'));
+  put('hemDisiplinJumlah',fmt(Number(disiplin.jumlah||0))+' rekod direkodkan');
+  put('hemAmalanJumlah',fmt(Number(amalan.jumlah||0))+' rekod direkodkan');
+
+  ['disciplineChart','goodChart'].forEach(id=>{
+    const old=charts.find(c=>c.canvas&&c.canvas.id===id);
+    if(old){old.destroy();charts=charts.filter(c=>c!==old);}
+  });
+
+  const dRows=Array.isArray(disiplin.kategori)?disiplin.kategori:[];
+  const aRows=Array.isArray(amalan.kategori)?amalan.kategori:[];
+  const dColors=['#f16b75','#f5b942','#a78bfa','#4f8cff','#20c997','#37c6e8','#fb923c','#e879f9'];
+  const aColors=['#20c997','#4f8cff','#f5b942','#a78bfa','#f16b75','#37c6e8','#fb923c','#e879f9'];
+
+  donut('disciplineChart',
+    dRows.length?dRows.map(x=>Number(x.jumlah||0)):[0],
+    dRows.length?dRows.map(x=>x.nama):['Tiada rekod'],
+    dRows.map((x,i)=>dColors[i%dColors.length]));
+  donut('goodChart',
+    aRows.length?aRows.map(x=>Number(x.jumlah||0)):[0],
+    aRows.length?aRows.map(x=>x.nama):['Tiada rekod'],
+    aRows.map((x,i)=>aColors[i%aColors.length]));
+}
 
 
 let monthlyAnalysisData = null;
