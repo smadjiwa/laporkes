@@ -85,7 +85,6 @@ function updateHemDashboard(d){
   put('hem-sick', fmt(d.muridSakit3K || 0));
   put('hem-date', d.tarikhData || '—');
   put('hem-updated', 'Kemas kini: '+(d.dikemasKini || '—'));
-  put('hem-aid','—'); put('hem-aid-foot','Belum disambungkan');
   const c=charts.find(x=>x.canvas && x.canvas.id==='attendanceChart');
   if(c && Array.isArray(d.pecahanTingkatan)){
     c.data.labels=d.pecahanTingkatan.map(x=>x.tingkatan);
@@ -117,7 +116,7 @@ function dashboard(){return `${head("Ringkasan Eksekutif HEM","Pantauan menyelur
 ${kpi("Jumlah Murid",'<span id="hem-total">—</span>','<span id="hem-gender">Lelaki — · Perempuan —</span>',"♙","blue","Sumber: Daftar")}
 ${kpi("Kehadiran Hari Ini",'<span id="hem-attendance">—</span>','<span id="hem-attendance-foot">Memuatkan data...</span>',"◷","green","Sumber: HadirKelas")}
 ${kpi("Kes Disiplin Aktif",'<span id="hem-discipline">—</span>','<span id="hem-discipline-foot">Belum disambungkan</span><small id="hem-discipline-status" style="display:block;margin-top:5px;color:#8da5c3">Menunggu sambungan API</small>',"⚑","red","Modul disiplin belum disambungkan")}
-${kpi("Penerima Bantuan",'<span id="hem-aid">—</span>','<span id="hem-aid-foot">Belum disambungkan</span>',"♡","amber","Modul bantuan belum disambungkan")}
+${kpi("Kes UBK Aktif",'<span id="hem-ubk">—</span>','<span id="hem-ubk-foot">Memuatkan data UBK...</span>',"✚","purple","Sumber: Tab UBK")}
 ${kpi("Murid 3K / Sakit",'<span id="hem-sick">—</span>',"Hospital · MC · Rawatan · MC-PBM","✚","purple","Sumber: Kehadiran")}
 </div>
 <div class="grid charts">
@@ -213,7 +212,7 @@ function setHemSahsiahError(message){
   if(active) active.textContent='—';
   if(foot) foot.textContent=message;
   if(status) status.textContent='Semakan: '+new Date().toLocaleTimeString('ms-MY');
-  ['hemDisiplinJumlah','hemAmalanJumlah'].forEach(id=>{
+  ['hemDisiplinJumlah','hemAmalanJumlah','hem-ubk-foot'].forEach(id=>{
     const el=document.getElementById(id);
     if(el) el.textContent='Data belum diterima';
   });
@@ -227,6 +226,9 @@ function updateHemSahsiahUI(data){
   put('hem-discipline',fmt(Number(disiplin.aktif||0)));
   put('hem-discipline-foot',fmt(Number(disiplin.belumSelesai||0))+' kes belum selesai');
   put('hem-discipline-status','Dikemas kini: '+(data.dikemasKini||'—'));
+  const ubk=data.ubk||{};
+  put('hem-ubk',fmt(Number(ubk.aktif||0)));
+  put('hem-ubk-foot',fmt(Number(ubk.belumSelesai||0))+' kes belum selesai · '+fmt(Number(ubk.jumlah||0))+' jumlah kes');
   put('hemDisiplinJumlah',fmt(Number(disiplin.jumlah||0))+' rekod direkodkan');
   put('hemAmalanJumlah',fmt(Number(amalan.jumlah||0))+' rekod direkodkan');
 
