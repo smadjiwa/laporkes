@@ -389,7 +389,7 @@ function tablePage(page,sub){
  const cfg={
  murid:{title:"Profil & Data Murid",desc:"Direktori induk, status pendaftaran dan pemantauan keciciran.",subs:submenus.murid,headers:["No. ID","Nama Murid","Kelas","Jantina","Status"],rows:students},
  kehadiran:{title:"Kehadiran & APDM",desc:"Pemantauan rekod harian, analisis bulanan dan intervensi ponteng.",subs:submenus.kehadiran,headers:["Kelas","Jumlah Murid","Hadir","Tidak Hadir","Kehadiran"],rows:[["1 Amanah","30","29","1","96.7%"],["2 Cekal","29","27","2","93.1%"],["3 Bestari","31","28","3","90.3%"],["4 Dinamik","28","27","1","96.4%"],["5 Amanah","30","27","3","90.0%"],["5 Bestari","29","28","1","96.6%"]]},
- disiplin:{title:"Disiplin & SSDM",desc:"Pengurusan salah laku, amalan baik, kes berat dan pengawas.",subs:submenus.disiplin,headers:["Tarikh","Nama Murid","Kelas","Kategori","Status"],rows:[["19/11/2026","Murid SM24042","3 Bestari","Ponteng kelas","Dalam tindakan"],["18/11/2026","Murid SM23015","4 Cekal","Lewat hadir","Selesai"],["17/11/2026","Murid SM25018","2 Cekal","Merokok / vape","Siasatan"],["16/11/2026","Murid SM26001","1 Amanah","Amalan baik","Direkodkan"]]},
+ disiplin:{title:"Disiplin & SSDM",desc:"Pengurusan salah laku, amalan baik, kes berat dan pengawas.",subs:submenus.disiplin,headers:["Tarikh","Nama Murid","Kelas","Kategori","Status"],rows:[]},
  bantuan:{title:"Kebajikan & Bantuan",desc:"Penyelarasan bantuan persekolahan, kebajikan dan perlindungan murid.",subs:submenus.bantuan,headers:["Program","Sasaran","Telah diagih","Dalam proses","Kemajuan"],rows:[["BAP","1,428","1,380","48","96.6%"],["KWAMP","96","82","14","85.4%"],["Biasiswa","48","42","6","87.5%"],["SPBT","1,428","1,405","23","98.4%"],["RMT","120","120","0","100%"],["Takaful","1,428","1,428","0","100%"]]},
  kaunseling:{title:"Bimbingan & Kaunseling",desc:"Rekod sesi, saringan psikometrik dan intervensi Ziarah Cakna.",subs:submenus.kaunseling,headers:["Tarikh","Aktiviti","Kumpulan","Pegawai","Status"],rows:[["19/11/2026","Sesi individu","Tingkatan 3","Guru B&K","Selesai"],["20/11/2026","Saringan psikometrik","Tingkatan 1","Guru B&K","Dijadualkan"],["22/11/2026","Ziarah Cakna","Keluarga murid 2 Cekal","Pasukan HEM","Dirancang"]]},
  "3k":{title:"Keselamatan, Kesihatan & Kebersihan (3K)",desc:"Pemantauan kesihatan, keselamatan persekitaran dan kebersihan.",subs:submenus["3k"],headers:["Tarikh","Komponen","Lokasi","Dapatan","Status"],rows:[["19/11/2026","Kesihatan","Bilik Isolasi","5 murid dipantau","Dalam pemantauan"],["18/11/2026","Denggi","Blok B","1 lokasi berisiko","Tindakan"],["17/11/2026","Keselamatan","Blok Akademik","Pemeriksaan alat pemadam api","Selesai"]]},
@@ -399,13 +399,82 @@ function tablePage(page,sub){
  let chosen=sub||cfg.subs[0];
  let rows=cfg.rows;
  let isStudent=page==="murid";
- return `${head(cfg.title,cfg.desc)}<div class="subnav">${cfg.subs.map(s=>`<button class="${s===chosen?"active":""}" onclick="changeSub('${page}','${s}')">${s}</button>`).join("")}</div><div class="notice">Paparan prototaip · Modul <b>${chosen}</b>. Data contoh dipaparkan untuk demonstrasi aliran kerja dan bukan rekod rasmi APDM / SSDM.</div><div class="card">${cardTitle(chosen,isStudent?"Senarai contoh murid berdaftar":"Ringkasan rekod dan status terkini","DATA CONTOH")}<div class="toolbar"><input class="field" id="tableSearch" placeholder="Cari nama, kelas atau rekod..." oninput="filterTable()"><select class="field" id="filterSelect" onchange="filterTable()"><option value="">Semua rekod</option>${(isStudent?["Aktif","Dalam pemantauan","Berpindah"]:["Selesai","Dalam tindakan","Siasatan","Aktif"]).map(x=>`<option>${x}</option>`).join("")}</select><button class="btn secondary" onclick="alert('Fungsi tambah rekod ialah simulasi prototaip.')">＋ Tambah rekod</button><button class="btn secondary" onclick="alert('Data contoh sedia untuk dieksport dalam versi integrasi.')">⇩ Eksport</button></div><div class="table-wrap"><table id="dataTable"><thead><tr>${cfg.headers.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map((v,i)=>`<td>${i===r.length-1?statusPill(v):v}</td>`).join("")}</tr>`).join("")}</tbody></table></div><div style="display:flex;justify-content:space-between;color:var(--muted);font-size:9px;margin-top:12px"><span id="rowCount">Memaparkan ${rows.length} rekod contoh</span><span>Halaman 1 daripada 1</span></div></div>`;
+ let isDisciplineRecords=page==="disiplin" && chosen==="Rekod Salah Laku";
+ if(isDisciplineRecords) rows=[];
+ return `${head(cfg.title,cfg.desc)}<div class="subnav">${cfg.subs.map(s=>`<button class="${s===chosen?"active":""}" onclick="changeSub('${page}','${s}')">${s}</button>`).join("")}</div>${isDisciplineRecords?'<div class="notice" id="disiplinRecordNote">Memuatkan rekod rasmi daripada tab Disiplin...</div>':`<div class="notice">Paparan prototaip · Modul <b>${chosen}</b>. Data contoh dipaparkan untuk demonstrasi aliran kerja dan bukan rekod rasmi APDM / SSDM.</div>`}<div class="card">${cardTitle(chosen,isStudent?"Senarai contoh murid berdaftar":"Ringkasan rekod dan status terkini",isDisciplineRecords?"DATA GOOGLE SHEETS":"DATA CONTOH")}<div class="toolbar"><input class="field" id="tableSearch" placeholder="Cari nama, kelas atau rekod..." oninput="filterTable()"><select class="field" id="filterSelect" onchange="filterTable()"><option value="">Semua rekod</option>${(isStudent?["Aktif","Dalam pemantauan","Berpindah"]:["Selesai","Dalam tindakan","Siasatan","Aktif"]).map(x=>`<option>${x}</option>`).join("")}</select>${isDisciplineRecords?'<button class="btn secondary" onclick="loadDisiplinRecords()">↻ Segar semula</button><button class="btn secondary" onclick="exportDisiplinRecords()">⇩ Eksport CSV</button>':'<button class="btn secondary" onclick="alert(\'Fungsi tambah rekod ialah simulasi prototaip.\')">＋ Tambah rekod</button><button class="btn secondary" onclick="alert(\'Data contoh sedia untuk dieksport dalam versi integrasi.\')">⇩ Eksport</button>'}</div><div class="table-wrap"><table id="dataTable"><thead><tr>${cfg.headers.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map((v,i)=>`<td>${i===r.length-1?statusPill(v):v}</td>`).join("")}</tr>`).join("")}</tbody></table></div><div style="display:flex;justify-content:space-between;color:var(--muted);font-size:9px;margin-top:12px"><span id="rowCount">Memaparkan ${rows.length} rekod contoh</span><span id="pageCount">${isDisciplineRecords?"Data langsung":"Halaman 1 daripada 1"}</span></div></div>`;
 }
-function statusPill(v){let s=String(v).toLowerCase(),c=(s.includes("selesai")||s==="aktif"||s==="baik"||s.includes("direkod"))?"ok":(s.includes("tindakan")||s.includes("siasatan")||s.includes("pemantauan"))?"warn":"info";return `<span class="pill ${c}">${v}</span>`}
+let disiplinRecordsCache = [];
+let disiplinRecordsLoading = false;
+
+function loadDisiplinRecords(){
+  if(disiplinRecordsLoading) return;
+  disiplinRecordsLoading = true;
+  const note=document.getElementById('disiplinRecordNote');
+  if(note) note.textContent='Sedang mengambil rekod daripada tab Disiplin...';
+  const cb='hemDisiplinRecordsCallback_'+Date.now();
+  const script=document.createElement('script');
+  let done=false;
+  const finish=()=>{
+    if(done)return; done=true; disiplinRecordsLoading=false;
+    delete window[cb]; script.remove();
+  };
+  window[cb]=data=>{
+    try{
+      if(!data || !data.success) throw new Error(data && data.error ? data.error : 'Respons API tidak sah.');
+      disiplinRecordsCache=Array.isArray(data.records)?data.records:[];
+      renderDisiplinRecordsTable();
+      if(note) note.textContent=`Data berjaya dimuatkan daripada tab Disiplin · ${data.total||0} rekod · Dikemas kini ${data.dikemasKini||'—'}`;
+    }catch(err){if(note)note.textContent='Ralat memuatkan rekod: '+err.message;}
+    finally{finish();}
+  };
+  script.onerror=()=>{if(note)note.textContent='Gagal menghubungi GAS. Pastikan API hemDisiplinRecords telah dideploy.';finish();};
+  script.src=GAS_URL+(GAS_URL.includes('?')?'&':'?')+'api=hemDisiplinRecords&callback='+encodeURIComponent(cb)+'&_='+Date.now();
+  document.body.appendChild(script);
+}
+
+function renderDisiplinRecordsTable(){
+  const tbody=document.querySelector('#dataTable tbody');
+  if(!tbody)return;
+  const rows=disiplinRecordsCache;
+  const filter=document.getElementById('filterSelect');
+  if(filter){
+    const current=filter.value;
+    const statuses=[...new Set(rows.map(r=>String(r.status||'').trim()).filter(Boolean))];
+    filter.innerHTML='<option value="">Semua rekod</option>'+statuses.map(v=>`<option value="${escapeHTML(v)}">${escapeHTML(v)}</option>`).join('');
+    if(statuses.includes(current)) filter.value=current;
+  }
+  tbody.innerHTML=rows.map(r=>`<tr>
+    <td>${escapeHTML(r.tarikh)}</td>
+    <td>${escapeHTML(r.nama)}</td>
+    <td>${escapeHTML([r.tingkatan,r.kelas].filter(Boolean).join(' · '))}</td>
+    <td>${escapeHTML(r.kategori)}</td>
+    <td>${statusPill(escapeHTML(r.status))}</td>
+  </tr>`).join('');
+  const count=document.getElementById('rowCount');
+  if(count)count.textContent=`Memaparkan ${rows.length} rekod sebenar`;
+  const page=document.getElementById('pageCount');
+  if(page)page.textContent=`Jumlah ${rows.length} rekod`;
+  filterTable();
+}
+
+function escapeHTML(value){
+  return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+
+function exportDisiplinRecords(){
+  if(!disiplinRecordsCache.length){alert('Tiada rekod untuk dieksport.');return;}
+  const headers=['Tarikh','Nama Murid','Tingkatan','Kelas','Kategori','Status'];
+  const lines=[headers,...disiplinRecordsCache.map(r=>[r.tarikh,r.nama,r.tingkatan,r.kelas,r.kategori,r.status])];
+  const csv='\\uFEFF'+lines.map(row=>row.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\\r\\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='Rekod_Salah_Laku.csv';a.click();URL.revokeObjectURL(a.href);
+}
+
+function statusPill(v){let s=String(v).toLowerCase().trim(),c=(s==="selesai"||s==="aktif"||s==="baik"||s.includes("direkod"))?"ok":(s.includes("belum selesai")||s.includes("tindakan")||s.includes("siasatan")||s.includes("pemantauan"))?"warn":"info";return `<span class="pill ${c}">${v}</span>`}
 function reports(){return `${head("Laporan & Analisis","Penjanaan laporan eksekutif untuk pemantauan dan mesyuarat pengurusan.")}<div class="grid report-grid">${[["Laporan Kehadiran","Analisis kehadiran mengikut tingkatan, kelas dan tempoh.","▣"],["Laporan Disiplin SSDM","Ringkasan salah laku, amalan baik dan status intervensi.","⚑"],["Laporan Kebajikan","Status agihan BAP, KWAMP, SPBT, RMT dan biasiswa.","♡"],["Laporan 3K","Kesihatan, keselamatan, kebersihan dan tindakan susulan.","✚"],["Laporan Kaunseling","Sesi kaunseling, psikometrik dan Ziarah Cakna.","☏"],["Laporan Eksekutif HEM","Ringkasan KPI utama untuk pembentangan pengurusan.","▤"]].map(x=>`<div class="card report-tile"><div class="kpi-icon blue" style="margin-bottom:13px">${x[2]}</div><h3>${x[0]}</h3><p>${x[1]}</p><button class="btn secondary" onclick="generateReport('${x[0]}','pdf')">Jana PDF ↗</button> <button class="btn secondary" onclick="generateReport('${x[0]}','excel')">Excel ↗</button></div>`).join("")}</div><div class="card section-card">${cardTitle("Prestasi KPI HEM","Pencapaian indikator utama sekolah bagi sesi 2026/2027.")}${[["Kehadiran murid","94.2% daripada sasaran 95%",94.2],["Penyelesaian agihan SPBT","98.4%",98.4],["Pengesahan BAP","96.6%",96.6],["Tindakan kes disiplin","75% kes selesai",75]].map(x=>`<div class="progress-row"><div class="progress-meta"><b>${x[0]}</b><span>${x[1]}</span></div><div class="progress"><i style="width:${x[2]}%"></i></div></div>`).join("")}</div>`}
-function render(){charts.forEach(c=>c.destroy());charts=[];document.querySelectorAll(".nav-btn").forEach(b=>b.classList.toggle("active",b.dataset.page===currentPage));let c=document.getElementById("content");if(currentPage==="dashboard"){c.innerHTML=dashboard();setupCharts()}else if(currentPage==="murid"){c.innerHTML=profileModulePage()}else if(currentPage==="laporan")c.innerHTML=reports();else if(currentPage==="kehadiran"){if(currentSub==="Analisis Bulanan"){c.innerHTML=monthlyAnalysisPage();loadMonthlyAnalysis(document.getElementById("monthlyPicker").value)}else{c.innerHTML=attendancePage(currentSub);if((currentSub||submenus.kehadiran[0])==="Rekod Harian")loadAttendanceModule(document.getElementById("attendanceDate").value)}}else c.innerHTML=tablePage(currentPage,currentSub)}
+function render(){charts.forEach(c=>c.destroy());charts=[];document.querySelectorAll(".nav-btn").forEach(b=>b.classList.toggle("active",b.dataset.page===currentPage));let c=document.getElementById("content");if(currentPage==="dashboard"){c.innerHTML=dashboard();setupCharts()}else if(currentPage==="murid"){c.innerHTML=profileModulePage()}else if(currentPage==="laporan")c.innerHTML=reports();else if(currentPage==="kehadiran"){if(currentSub==="Analisis Bulanan"){c.innerHTML=monthlyAnalysisPage();loadMonthlyAnalysis(document.getElementById("monthlyPicker").value)}else{c.innerHTML=attendancePage(currentSub);if((currentSub||submenus.kehadiran[0])==="Rekod Harian")loadAttendanceModule(document.getElementById("attendanceDate").value)}}else {c.innerHTML=tablePage(currentPage,currentSub);if(currentPage==="disiplin" && (currentSub||submenus.disiplin[0])==="Rekod Salah Laku") loadDisiplinRecords();}}
 function changeSub(p,s){currentSub=s;render()}
-function filterTable(){let q=(document.getElementById("tableSearch")?.value||"").toLowerCase(),f=document.getElementById("filterSelect")?.value||"",rows=[...document.querySelectorAll("#dataTable tbody tr")],n=0;rows.forEach(r=>{let text=r.innerText.toLowerCase(),last=r.cells[r.cells.length-1].innerText;let show=text.includes(q)&&(!f||last===f);r.style.display=show?"":"none";if(show)n++});document.getElementById("rowCount").textContent=`Memaparkan ${n} daripada ${rows.length} rekod contoh`}
+function filterTable(){let q=(document.getElementById("tableSearch")?.value||"").toLowerCase(),f=document.getElementById("filterSelect")?.value||"",rows=[...document.querySelectorAll("#dataTable tbody tr")],n=0;rows.forEach(r=>{let text=r.innerText.toLowerCase(),last=r.cells[r.cells.length-1].innerText;let show=text.includes(q)&&(!f||last===f);r.style.display=show?"":"none";if(show)n++});document.getElementById("rowCount").textContent=`Memaparkan ${n} daripada ${rows.length} rekod`}
 function generateReport(name,type){let text=`${name}\nSM Sains Sultan Mohamad Jiwa\nTarikh: 19 November 2026\n\nLaporan ini ialah simulasi prototaip Dashboard HEM.\nJumlah murid: 1,428\nKehadiran: 94.2%\nKes disiplin aktif: 12\nPenerima bantuan: 386\n`;let blob=new Blob([text],{type:"text/plain;charset=utf-8"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name.replaceAll(" ","_")+(type==="pdf"?".txt (simulasi PDF).txt":".csv");a.click();URL.revokeObjectURL(a.href);alert(`Simulasi eksport ${type.toUpperCase()} dijalankan. Untuk fail PDF/Excel sebenar, sambungkan modul penjanaan dokumen.`)}
 document.querySelectorAll(".nav-btn").forEach(b=>b.addEventListener("click",()=>{currentPage=b.dataset.page;currentSub="";render();document.getElementById("sidebar").classList.remove("open")}));
 document.getElementById("menuBtn").addEventListener("click",()=>document.getElementById("sidebar").classList.toggle("open"));
