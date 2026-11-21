@@ -116,14 +116,14 @@ function cardTitle(t,s,tag=""){return `<div class="card-title"><div><h3>${t}</h3
 function dashboard(){return `${head("Ringkasan Eksekutif HEM","Pantauan menyeluruh status murid, kebajikan, disiplin dan keselamatan sekolah.")}<div class="notice" style="display:flex;justify-content:space-between;align-items:center;gap:10px"><span id="hemDataNote">Menunggu sambungan data Google Sheets...</span><button class="btn secondary" onclick="loadHemData();loadHemSahsiahData()">↻ Kemas kini data</button></div><div class="grid kpis">
 ${kpi("Jumlah Murid",'<span id="hem-total">—</span>','<span id="hem-gender">Lelaki — · Perempuan —</span>',"♙","blue","Sumber: Daftar")}
 ${kpi("Kehadiran Hari Ini",'<span id="hem-attendance">—</span>','<span id="hem-attendance-foot">Memuatkan data...</span>',"◷","green","Sumber: HadirKelas")}
-${kpi("Kes Disiplin Aktif",'<span id="hem-discipline">—</span>','<span id="hem-discipline-foot">Belum disambungkan</span>',"⚑","red","Modul disiplin belum disambungkan")}
+${kpi("Kes Disiplin Aktif",'<span id="hem-discipline">—</span>','<span id="hem-discipline-foot">Belum disambungkan</span><small id="hem-discipline-status" style="display:block;margin-top:5px;color:#8da5c3">Menunggu sambungan API</small>',"⚑","red","Modul disiplin belum disambungkan")}
 ${kpi("Penerima Bantuan",'<span id="hem-aid">—</span>','<span id="hem-aid-foot">Belum disambungkan</span>',"♡","amber","Modul bantuan belum disambungkan")}
 ${kpi("Murid 3K / Sakit",'<span id="hem-sick">—</span>',"Hospital · MC · Rawatan · MC-PBM","✚","purple","Sumber: Kehadiran")}
 </div>
 <div class="grid charts">
 <div class="card wide">${cardTitle("Analisis Kehadiran Mengikut Tingkatan","Peratus kehadiran harian berbanding garis sasaran 95%.","HARI INI")}<div class="chart-wrap"><canvas id="attendanceChart"></canvas></div></div>
 <div class="card">${cardTitle("Agihan Kebajikan & Bantuan","Kemajuan agihan mengikut skim.","STATUS")}<div id="aidBars"></div></div>
-<div class="card">${cardTitle("Disiplin & Sahsiah","Taburan rekod salah laku dan amalan baik.","TAHUN 2026")}<div class="donuts"><div class="donut-item"><div class="chart-wrap"><canvas id="disciplineChart"></canvas></div><b>Kes Salah Laku</b><small>42 rekod direkodkan</small></div><div class="donut-item"><div class="chart-wrap"><canvas id="goodChart"></canvas></div><b>Amalan Baik</b><small>186 rekod direkodkan</small></div></div></div>
+<div class="card">${cardTitle("Disiplin & Sahsiah","Taburan rekod salah laku dan amalan baik.","TAHUN 2026")}<div class="donuts"><div class="donut-item"><div class="chart-wrap"><canvas id="disciplineChart"></canvas></div><b>Kes Salah Laku</b><small id="hemDisiplinJumlah">Menunggu data...</small></div><div class="donut-item"><div class="chart-wrap"><canvas id="goodChart"></canvas></div><b>Amalan Baik</b><small id="hemAmalanJumlah">Menunggu data...</small></div></div></div>
 </div>
 <div class="grid bottom">
 <div class="card">${cardTitle("Makluman Keselamatan & Kesihatan","Pemantauan 3K dan tindakan berisiko.")}<div class="panel-list">
@@ -161,33 +161,45 @@ function donut(id,data,labels,colors){let el=document.getElementById(id);if(el)c
 /* INTEGRASI DATA DISIPLIN & SAHSIAH DARIPADA GOOGLE SHEETS */
 let hemSahsiahData = null;
 let hemSahsiahLoading = false;
+let hemSahsiahTimer = null;
 
 function loadHemSahsiahData(){
   if(hemSahsiahLoading) return;
   hemSahsiahLoading = true;
   const cb = 'hemSahsiahCallback_' + Date.now();
   const script = document.createElement('script');
+  let completed = false;
+
+  const finish = () => {
+    if(completed) return;
+    completed = true;
+    hemSahsiahLoading = false;
+    if(hemSahsiahTimer) clearTimeout(hemSahsiahTimer);
+    delete window[cb];
+    script.remove();
+  };
 
   window[cb] = data => {
     try {
-      if(!data || !data.success) throw new Error(data && data.error ? data.error : 'Respons API tidak sah.');
+      if(!data || !data.success) throw new Error(data && data.error ? data.error : 'API tidak memulangkan data success=true.');
       hemSahsiahData = data;
       updateHemSahsiahUI(data);
     } catch(err) {
-      setHemSahsiahError(err.message);
+      setHemSahsiahError('Ralat API Sahsiah: ' + err.message);
     } finally {
-      hemSahsiahLoading = false;
-      delete window[cb];
-      script.remove();
+      finish();
     }
   };
 
   script.onerror = () => {
-    hemSahsiahLoading = false;
-    setHemSahsiahError('Gagal menghubungi API Disiplin & Sahsiah. Semak URL/deployment GAS.');
-    delete window[cb];
-    script.remove();
+    setHemSahsiahError('Gagal menghubungi API hemSahsiah. Semak URL GAS dan deployment versi terkini.');
+    finish();
   };
+
+  hemSahsiahTimer = setTimeout(() => {
+    setHemSahsiahError('API hemSahsiah tidak memberi respons. Kemungkinan kod GAS belum diterbitkan semula.');
+    finish();
+  }, 15000);
 
   script.src = GAS_URL + (GAS_URL.includes('?') ? '&' : '?') +
     'api=hemSahsiah&callback=' + encodeURIComponent(cb) + '&_=' + Date.now();
@@ -195,12 +207,16 @@ function loadHemSahsiahData(){
 }
 
 function setHemSahsiahError(message){
-  ['hemDisiplinAktifNota','hemDisiplinAktifStatus','hemDisiplinJumlah','hemAmalanJumlah'].forEach(id=>{
-    const el=document.getElementById(id);
-    if(el) el.textContent=message;
-  });
-  const active=document.getElementById('hemDisiplinAktif');
+  const active=document.getElementById('hem-discipline');
+  const foot=document.getElementById('hem-discipline-foot');
+  const status=document.getElementById('hem-discipline-status');
   if(active) active.textContent='—';
+  if(foot) foot.textContent=message;
+  if(status) status.textContent='Semakan: '+new Date().toLocaleTimeString('ms-MY');
+  ['hemDisiplinJumlah','hemAmalanJumlah'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.textContent='Data belum diterima';
+  });
 }
 
 function updateHemSahsiahUI(data){
@@ -208,9 +224,9 @@ function updateHemSahsiahUI(data){
   const amalan=data.amalanBaik||{};
   const put=(id,value)=>{const el=document.getElementById(id);if(el)el.textContent=value;};
 
-  put('hemDisiplinAktif',fmt(Number(disiplin.aktif||0)));
-  put('hemDisiplinAktifNota',fmt(Number(disiplin.belumSelesai||0))+' kes belum selesai');
-  put('hemDisiplinAktifStatus','Dikemas kini: '+(data.dikemasKini||'—'));
+  put('hem-discipline',fmt(Number(disiplin.aktif||0)));
+  put('hem-discipline-foot',fmt(Number(disiplin.belumSelesai||0))+' kes belum selesai');
+  put('hem-discipline-status','Dikemas kini: '+(data.dikemasKini||'—'));
   put('hemDisiplinJumlah',fmt(Number(disiplin.jumlah||0))+' rekod direkodkan');
   put('hemAmalanJumlah',fmt(Number(amalan.jumlah||0))+' rekod direkodkan');
 
@@ -225,13 +241,13 @@ function updateHemSahsiahUI(data){
   const aColors=['#20c997','#4f8cff','#f5b942','#a78bfa','#f16b75','#37c6e8','#fb923c','#e879f9'];
 
   donut('disciplineChart',
-    dRows.length?dRows.map(x=>Number(x.jumlah||0)):[0],
+    dRows.length?dRows.map(x=>Number(x.jumlah||0)):[1],
     dRows.length?dRows.map(x=>x.nama):['Tiada rekod'],
-    dRows.map((x,i)=>dColors[i%dColors.length]));
+    dRows.length?dRows.map((x,i)=>dColors[i%dColors.length]):['#40516b']);
   donut('goodChart',
-    aRows.length?aRows.map(x=>Number(x.jumlah||0)):[0],
+    aRows.length?aRows.map(x=>Number(x.jumlah||0)):[1],
     aRows.length?aRows.map(x=>x.nama):['Tiada rekod'],
-    aRows.map((x,i)=>aColors[i%aColors.length]));
+    aRows.length?aRows.map((x,i)=>aColors[i%aColors.length]):['#40516b']);
 }
 
 
